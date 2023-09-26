@@ -8,6 +8,7 @@ import {
   globals as geotiffGlobals,
   fromBlob as tiffFromBlob,
   fromUrl as tiffFromUrl,
+  fromFile as tiffFromFile,
   fromUrls as tiffFromUrls,
 } from 'geotiff';
 import {
@@ -60,9 +61,10 @@ function readRGB(preference, image) {
 
 /**
  * @typedef {Object} SourceInfo
- * @property {string} [url] URL for the source GeoTIFF.
+ * @property {string} [url] URL for the source GeoTIFF. `url`, `blob`, and `file` are mutually exclusive.
  * @property {Array<string>} [overviews] List of any overview URLs, only applies if the url parameter is given.
- * @property {Blob} [blob] Blob containing the source GeoTIFF. `blob` and `url` are mutually exclusive.
+ * @property {string} [file] File for the source GeoTIFF. `url`, `blob`, and `file` are mutually exclusive.
+ * @property {Blob} [blob] Blob containing the source GeoTIFF. `url`, `blob`, and `file` are mutually exclusive.
  * @property {number} [min=0] The minimum source data value.  Rendered values are scaled from 0 to 1 based on
  * the configured min and max.  If not provided and raster statistics are available, those will be used instead.
  * If neither are available, the minimum for the data type will be used.  To disable this behavior, set
@@ -238,6 +240,8 @@ function getImagesForSource(source, options) {
   let request;
   if (source.blob) {
     request = tiffFromBlob(source.blob);
+  } else if (source.file) {
+    request = tiffFromFile(source.file);
   } else if (source.overviews) {
     request = tiffFromUrls(source.url, source.overviews, options);
   } else {
@@ -464,7 +468,15 @@ class GeoTIFFSource extends DataTile {
      */
     this.convertToRGB_ = options.convertToRGB || false;
 
-    this.setKey(this.sourceInfo_.map((source) => source.url).join(','));
+    this.setKey(this.sourceInfo_.map((source) => {
+      if (source.url) {
+        return source.url
+      }
+      if (source.file) {
+        return source.file
+      }
+      return '';
+    }).join(','));
 
     const self = this;
     const requests = new Array(numSources);
